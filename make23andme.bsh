@@ -1,0 +1,64 @@
+### Script to merge 23andme files into a single dataset in openSNP
+#!/bin/bash
+
+logfile=make23andme.log
+date > $logfile
+datapath=/m/CPHG/KING/wc9c/data/openSNP
+PLINK=plink1.9
+KING=king
+tempmergefile=tmp23_mergefile.txt
+tempcleanfile=tmp23_openSNP23
+mergefile=mergefile.txt
+cleanfile=openSNP23raw
+releasefile=openSNP23
+
+date
+allfiles=($(ls -l $datapath | awk 'NF==9' | grep "23andme.txt" | awk '{print $NF}' | tr '\n' ' '))
+allids=($(ls -l $datapath | awk 'NF==9' | grep "23andme.txt" | awk '{print $NF}' | awk '{print substr($1, 5, index($1, "_")-5)}' | tr '\n' ' '))
+count=${#allids[@]}
+echo "$count samples have genotype data in 23andme format"
+echo -n > $tempmergefile
+for (( i=0; i<$count; i++ )); do
+  id=${allids[$i]}
+  file=$datapath/${allfiles[$i]}
+  errorcount1=$(grep -v "^#" $file | awk 'NR==1 && $1=="rsid" || NF!=4' | wc -l)
+  if [ $errorcount1 != 0 ]; then
+    echo "In $file, $errorcount1 SNPs do not have 4 columns"
+    continue    
+  fi
+  snpcount=$(grep -v "^#" $file | wc -l)
+  errorcount2=$(grep -v "^#" $file | grep "^rs" | wc -l)
+  if [ $errorcount2 -lt 100000 ] || [ $errorcount2 -gt 1000000 ] || [ $snpcount -gt 1000000 ]; then
+    echo "$file does not include any or does include too many rs# SNPs"
+    continue
+  fi
+  echo "Convert 23ndme genome $file for user $id"
+  $PLINK --23file $file $id $id --out user$id &>> $logfile
+  errorcount3=$(grep "Error" user$id.log | wc -l)
+  if [ $errorcount3 != 0 ]; then
+    echo "Error in user$id.log"
+    continue
+  fi
+  echo user$id >> $tempmergefile
+done
+
+$PLINK --merge-list $tempmergefile --make-bed --out $tempcleanfile &>> $logfile
+
+allusers=($(cat $tempmergefile | tr '\n' ' '))
+echo -n > $mergefile
+count=${#allusers[@]}
+for (( i=0; i<$count; i++ )); do
+  id=${allusers[$i]}
+  $PLINK --bfile $id --exclude ${tempcleanfile}-merge.missnp --make-bed --out new$id &>> $logfile
+  echo new$id >> $mergefile
+done
+
+echo "Merge all $count 23andme genomes and save in PLINK files $cleanfile"
+$PLINK --merge-list $mergefile --make-bed --out $cleanfile &>> $logfile
+$KING -b $cleanfile.bed --autoQC --rplot --prefix $cleanfile 
+$PLINK --bfile $cleanfile --remove ${cleanfile}_autoQC_sampletoberemoved.txt --exclude ${cleanfile}_autoQC_snptoberemoved.txt --make-bed --out $releasefile &>> $logfile
+$KING -b /m/jdrfdn_scratch/users/wc9c/KING/data/KGref,$releasefile --mds --proj --rplot --prefix openSNP    
+$KING -b $releasefile.bed --roh --related --ibdseg --deg 2 --rplot --prefix openSNP
+$KING -b $releasefile.bed --autoQC --rplot --prefix openSNP
+date
+
