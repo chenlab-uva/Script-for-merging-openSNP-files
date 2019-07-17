@@ -1,4 +1,4 @@
-### Script to merge 23andme files into a single dataset in openSNP
+### Script for merging 23andme files into a single dataset in openSNP
 #!/bin/bash
 
 logfile=make23andme.log
