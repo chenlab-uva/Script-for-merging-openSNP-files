@@ -41,9 +41,8 @@ for (( i=0; i<$count; i++ )); do
   fi
   echo user$id >> $tempmergefile
 done
-echo "Removing user*.log, user*.fam, user*bim"
+echo "Removing user*.log, user*bim"
 rm -rf user*.log
-rm -rf user*.fam
 rm -rf user*bim
 echo "Merging"
 $PLINK --merge-list $tempmergefile --make-bed --out $tempcleanfile &>> $logfile
