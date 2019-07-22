@@ -3,8 +3,8 @@
 
 logfile=make23andme.log
 date > $logfile
-datapath=/m/CPHG/KING/wc9c/data/openSNP
-PLINK=plink1.9
+datapath=../opensnp_dataset
+PLINK=plink
 KING=king
 tempmergefile=tmp23_mergefile.txt
 tempcleanfile=tmp23_openSNP23
@@ -41,9 +41,12 @@ for (( i=0; i<$count; i++ )); do
   fi
   echo user$id >> $tempmergefile
 done
-
+echo "Removing user*.log, user*.fam, user*bim"
+rm -rf user*.log
+rm -rf user*.fam
+rm -rf user*bim
+echo "Merging"
 $PLINK --merge-list $tempmergefile --make-bed --out $tempcleanfile &>> $logfile
-
 allusers=($(cat $tempmergefile | tr '\n' ' '))
 echo -n > $mergefile
 count=${#allusers[@]}
